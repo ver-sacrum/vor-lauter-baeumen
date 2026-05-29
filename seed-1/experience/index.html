@@ -1,370 +1,500 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>seed-1</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spore I — For the Trees</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Inconsolata:wght@300;400&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --black: #080808;
+      --border: #1e1e1e;
+      --text-dim: #3a3a3a;
+      --text-mid: #777770;
+      --text: #c8c8c0;
+      --text-bright: #e8e8e0;
+      --accent: #a8a890;
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     html, body {
-      width: 100%;
+      background: var(--black);
+      color: var(--text);
+      font-family: 'Inconsolata', monospace;
+      font-weight: 300;
       height: 100%;
-      background: #080808;
       overflow: hidden;
+      user-select: none;
     }
 
-    /* p5 canvas sits behind everything */
-    canvas {
-      display: block;
+    /* Grain */
+    body::after {
+      content: '';
       position: fixed;
       inset: 0;
-    }
-
-    /* UI layer floats above canvas */
-    #ui {
-      position: fixed;
-      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
       pointer-events: none;
+      z-index: 100;
+      opacity: 0.5;
+    }
+
+    canvas {
+      position: fixed;
+      inset: 0;
+      display: block;
+    }
+
+    /* UI layer */
+    .ui {
+      position: fixed;
+      inset: 0;
       z-index: 10;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 40px 36px;
+      pointer-events: none;
     }
 
-    /* Mute toggle — bottom right, pointer-events re-enabled */
-    #mute-btn {
-      position: absolute;
-      bottom: 32px;
-      right: 32px;
+    .ui-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .ui-nav {
       pointer-events: all;
-      cursor: pointer;
-      background: none;
-      border: none;
-      padding: 8px;
-      opacity: 0.35;
-      transition: opacity 0.4s;
     }
 
-    #mute-btn:hover { opacity: 0.7; }
-
-    #mute-btn svg {
-      width: 18px;
-      height: 18px;
-      fill: none;
-      stroke: #c8c8c0;
-      stroke-width: 1.5;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-
-    /* Seed name — bottom left */
-    #seed-label {
-      position: absolute;
-      bottom: 36px;
-      left: 32px;
-      font-family: 'Courier New', monospace;
+    .ui-nav a {
       font-size: 10px;
       letter-spacing: 0.2em;
-      color: #2a2a28;
-      text-transform: lowercase;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      text-decoration: none;
+      transition: color 0.3s;
+    }
+
+    .ui-nav a:hover { color: var(--text); }
+
+    .piece-id {
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .ui-bottom {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    /* Sound trigger */
+    .sound-btn {
+      pointer-events: all;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      background: none;
+      border: none;
+      color: inherit;
+      font-family: inherit;
+      transition: opacity 0.3s;
+    }
+
+    .sound-btn:hover { opacity: 0.7; }
+
+    .sound-ring {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      transition: border-color 0.4s;
+    }
+
+    .sound-ring.playing {
+      border-color: var(--accent);
+    }
+
+    .sound-ring.playing .pulse {
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .pulse {
+      position: absolute;
+      inset: -8px;
+      border-radius: 50%;
+      border: 1px solid var(--accent);
+      opacity: 0;
+    }
+
+    @keyframes pulse {
+      0%   { transform: scale(1);    opacity: 0.5; }
+      100% { transform: scale(1.5);  opacity: 0; }
+    }
+
+    .sound-icon {
+      width: 16px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+    }
+
+    .sound-bar {
+      width: 2px;
+      background: var(--text-mid);
+      border-radius: 1px;
+      transition: height 0.1s;
+    }
+
+    .b1 { height: 6px; }
+    .b2 { height: 12px; }
+    .b3 { height: 8px; }
+    .b4 { height: 10px; }
+    .b5 { height: 5px; }
+
+    .sound-ring.playing .b1 { animation: bar 0.8s ease-in-out infinite alternate; }
+    .sound-ring.playing .b2 { animation: bar 0.6s ease-in-out infinite alternate 0.1s; }
+    .sound-ring.playing .b3 { animation: bar 1s ease-in-out infinite alternate 0.2s; }
+    .sound-ring.playing .b4 { animation: bar 0.7s ease-in-out infinite alternate 0.05s; }
+    .sound-ring.playing .b5 { animation: bar 0.9s ease-in-out infinite alternate 0.15s; }
+
+    @keyframes bar {
+      from { transform: scaleY(0.3); }
+      to   { transform: scaleY(1.8); }
+    }
+
+    .sound-label {
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .piece-title {
+      font-family: 'IM Fell English', serif;
+      font-style: italic;
+      font-size: 1rem;
+      color: var(--text-dim);
+      letter-spacing: 0.05em;
+    }
+
+    /* Loading screen */
+    #loading {
+      position: fixed;
+      inset: 0;
+      background: var(--black);
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.8s ease;
+    }
+
+    #loading.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .loading-text {
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      animation: breathe 2s ease-in-out infinite;
+    }
+
+    @keyframes breathe {
+      0%, 100% { opacity: 0.3; }
+      50%       { opacity: 0.8; }
     }
   </style>
 </head>
 <body>
 
-<div id="ui">
-  <button id="mute-btn" aria-label="Toggle sound" title="Toggle sound">
-    <!-- Speaker icon, swapped via JS when muted -->
-    <svg id="icon-sound" viewBox="0 0 24 24">
-      <path d="M11 5L6 9H2v6h4l5 4V5z"/>
-      <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
-      <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
-    </svg>
-    <svg id="icon-mute" viewBox="0 0 24 24" style="display:none">
-      <path d="M11 5L6 9H2v6h4l5 4V5z"/>
-      <line x1="23" y1="9" x2="17" y2="15"/>
-      <line x1="17" y1="9" x2="23" y2="15"/>
-    </svg>
-  </button>
-  <span id="seed-label">seed-1</span>
+<div id="loading"><p class="loading-text">…</p></div>
+
+<canvas id="c"></canvas>
+
+<div class="ui">
+  <div class="ui-top">
+    <div class="ui-nav">
+      <a href="../index.html">← For the Trees</a>
+    </div>
+    <div class="piece-id">001 / Spore I</div>
+  </div>
+
+  <div class="ui-bottom">
+    <button class="sound-btn" id="soundBtn" aria-label="Play sound">
+      <div class="sound-ring" id="soundRing">
+        <div class="pulse"></div>
+        <div class="sound-icon">
+          <div class="sound-bar b1"></div>
+          <div class="sound-bar b2"></div>
+          <div class="sound-bar b3"></div>
+          <div class="sound-bar b4"></div>
+          <div class="sound-bar b5"></div>
+        </div>
+      </div>
+      <span class="sound-label" id="soundLabel">Touch to hear</span>
+    </button>
+    <p class="piece-title">Vor lauter Bäumen</p>
+  </div>
 </div>
 
 <script>
-// ─────────────────────────────────────────────────────────────────────────────
-// CONFIGURATION
-// Change SEED_STRING per pendant. Everything visual is derived from this value.
-// Change SOUND_FILES to point to your hosted audio files.
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Physics simulation ───────────────────────────────────────────────────────
+// Spore particles: each one is a small body with spring/drag forces.
+// On hover/touch, a repulsion field pushes them away.
+// They naturally settle back into a loose orbiting cluster.
 
-const SEED_STRING = 'seed-1';
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
 
-const SOUND_FILES = [
-  // Add your sound file URLs here, e.g.:
-  // 'https://yourdomain.com/sounds/forest-a.mp3',
-  // 'sounds/forest-b.mp3',
-];
+let W, H, cx, cy, mouse = { x: -9999, y: -9999, active: false };
+let bodies = [];
+let time = 0;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SEED HASH
-// Converts the seed string into a stable integer used to initialise
-// p5's random number generator. Same string → same visual character, always.
-// ─────────────────────────────────────────────────────────────────────────────
-
-function hashString(str) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) {
-    h = Math.imul(31, h) + str.charCodeAt(i) | 0;
-  }
-  return Math.abs(h);
+function resize() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  cx = W / 2; cy = H / 2;
 }
 
-const SEED_INT = hashString(SEED_STRING);
-
-// ─────────────────────────────────────────────────────────────────────────────
-// TIME-BASED PHASE
-// The animation runs on a continuous 6-hour cycle.
-// Each visit catches it at a different point in that cycle.
-// This value (0.0 → 1.0) is passed into the noise field as a z-offset,
-// so the fluid is always mid-flow, never restarting from the same state.
-// ─────────────────────────────────────────────────────────────────────────────
-
-const CYCLE_MS    = 20 * 60 * 1000; // 20 minutes in milliseconds
-const TIME_PHASE  = (Date.now() % CYCLE_MS) / CYCLE_MS; // 0.0 → 1.0
-
-// ─────────────────────────────────────────────────────────────────────────────
-// P5 SKETCH
-// ─────────────────────────────────────────────────────────────────────────────
-
-new p5(function(p) {
-
-  // ── Parameters derived from seed ──────────────────────────────────────────
-  // We temporarily set p5's random seed to extract stable parameters,
-  // then reset it so the animation itself runs freely from the time phase.
-
-  let params = {};
-
-  function deriveParams() {
-    p.randomSeed(SEED_INT);
-
-    params = {
-      // How many fluid layers to draw (2–4)
-      layers:      Math.floor(p.random(2, 5)),
-
-      // Base noise scale: controls size of fluid shapes
-      // Smaller = larger, more billowing forms
-      // Larger  = tighter, more intricate forms
-      noiseScale:  p.random(0.0008, 0.0022),
-
-      // How fast the noise field evolves over time
-      // This is the speed of the 6-hour cycle applied per frame
-      timeScale:   p.random(0.00006, 0.00014),
-
-      // Ink darkness: how dark the shapes are relative to background
-      // 0 = invisible, 1 = maximum contrast
-      inkStrength: p.random(0.45, 0.72),
-
-      // Slight warm/cool bias per pendant (very subtle)
-      // 0 = pure grey, positive = very faint warm, negative = very faint cool
-      colorBias:   p.random(-0.015, 0.015),
-    };
-
-    p.randomSeed(); // release seed lock
+// ── Body class ──────────────────────────────────────────────────────────────
+class Body {
+  constructor() {
+    const angle  = Math.random() * Math.PI * 2;
+    const radius = 60 + Math.random() * 120;
+    this.ox = cx + Math.cos(angle) * radius; // orbit origin
+    this.oy = cy + Math.sin(angle) * radius;
+    this.x  = this.ox;
+    this.y  = this.oy;
+    this.vx = 0;
+    this.vy = 0;
+    this.r  = Math.random() * 1.4 + 0.4;
+    this.alpha = Math.random() * 0.5 + 0.15;
+    this.orbitSpeed = (Math.random() - 0.5) * 0.0006;
+    this.orbitAngle = angle;
+    this.orbitR     = radius;
+    this.phase      = Math.random() * Math.PI * 2;
+    this.breatheAmp = Math.random() * 4 + 1;
+    this.breatheSpd = Math.random() * 0.008 + 0.004;
   }
 
-  // ── Offscreen graphics buffers ────────────────────────────────────────────
-  // We render each fluid layer into a graphics buffer,
-  // then composite them onto the main canvas with low opacity.
-  // This creates soft, overlapping forms rather than a single flat layer.
+  update() {
+    // Slowly drift orbit origin
+    this.orbitAngle += this.orbitSpeed;
+    const breathe = Math.sin(time * this.breatheSpd + this.phase) * this.breatheAmp;
+    this.ox = cx + Math.cos(this.orbitAngle) * (this.orbitR + breathe);
+    this.oy = cy + Math.sin(this.orbitAngle) * (this.orbitR + breathe);
 
-  let t = 0; // time accumulator, starts at the cycle phase
+    // Spring toward orbit origin
+    const kSpring = 0.018;
+    const dx = this.ox - this.x;
+    const dy = this.oy - this.y;
+    this.vx += dx * kSpring;
+    this.vy += dy * kSpring;
 
-  // ── Setup ─────────────────────────────────────────────────────────────────
-
-  p.setup = function() {
-    let cnv = p.createCanvas(p.windowWidth, p.windowHeight);
-    cnv.style('display', 'block');
-    cnv.style('position', 'fixed');
-    cnv.style('top', '0');
-    cnv.style('left', '0');
-
-    p.pixelDensity(1); // keep it lightweight on high-DPI screens
-    p.noiseDetail(4, 0.5); // 4 octaves of noise, moderate falloff
-
-    deriveParams();
-
-    // Initialise time from the cycle phase so each visit starts mid-flow
-    t = TIME_PHASE * 1000;
-
-    p.background(38); // testing brightness — reduce back to 8 when done
-    drawBacklight();
-  };
-
-  // ── Backlight ─────────────────────────────────────────────────────────────
-  // A soft radial glow centred on the canvas — the ink floats against this
-  // rather than against pure black. Drawn once at setup and also on resize.
-
-  function drawBacklight() {
-    let cx = p.width  / 2;
-    let cy = p.height / 2;
-    let r  = p.max(p.width, p.height) * 0.72;
-
-    // Concentric ellipses fading inward to a slightly lighter centre —
-    // most of the light is concentrated near the middle (quadratic falloff)
-    for (let i = 0; i < 80; i++) {
-      let pct = i / 80;               // 0 = edge, 1 = centre
-      let br  = p.lerp(38, 72, pct * pct);
-      let a   = p.lerp(0, 60, pct * pct);
-      p.noStroke();
-      p.fill(br, br, br + 2, a);      // faintest cool tint at centre
-      let d = r * 2 * (1 - pct * 0.85);
-      p.ellipse(cx, cy, d, d);
-    }
-  }
-
-  // ── Draw ──────────────────────────────────────────────────────────────────
-  // Each frame:
-  // 1. Slowly fade the canvas toward the background — this dissolves old ink
-  //    and creates smooth trailing forms rather than hard edges
-  // 2. For each noise layer, sample the field and paint ink directly
-  // 3. Advance time by a tiny amount
-
-  p.draw = function() {
-
-    // Fade toward background each frame — low alpha = long smooth trails
-    // NOTE: bg value is bright (38) for testing — bring back to 8 when done
-    p.noStroke();
-    p.fill(38, 38, 40, 12);
-    p.rect(0, 0, p.width, p.height);
-
-    // Step size: pixels between noise samples
-    // 4 = good balance of smoothness and performance
-    let step = 4;
-
-    // Draw each fluid layer directly onto the main canvas
-    for (let li = 0; li < params.layers; li++) {
-
-      // Each layer samples a offset region of the noise field
-      // so they drift independently
-      let layerOffset = li * 400;
-
-      for (let x = 0; x < p.width; x += step) {
-        for (let y = 0; y < p.height; y += step) {
-
-          // 3D noise: x/y = position, t = slow time evolution
-          let n = p.noise(
-            x * params.noiseScale + layerOffset,
-            y * params.noiseScale + layerOffset,
-            t * params.timeScale + li * 0.3
-          );
-
-          // Only paint where noise exceeds threshold —
-          // creates distinct shapes rather than a uniform wash
-          let threshold = 0.42;
-          let density = p.constrain((n - threshold) / (1 - threshold), 0, 1);
-
-          if (density > 0) {
-            // Ink is darker than the background — ink in water, not light
-            // v goes from background brightness down toward black at full density
-            let v = p.map(density, 0, 1, 38, 38 - params.inkStrength * 80);
-            let rv = v + params.colorBias * 40;
-            let bv = v - params.colorBias * 40;
-
-            // Soft edges: opacity follows density
-            let a = density * params.inkStrength * 255 * 0.6;
-
-            p.noStroke();
-            p.fill(rv, v, bv, a);
-            p.rect(x, y, step, step);
-          }
-        }
+    // Repulsion from mouse/touch
+    if (mouse.active) {
+      const mx = mouse.x - this.x;
+      const my = mouse.y - this.y;
+      const dist = Math.sqrt(mx * mx + my * my);
+      const repelRadius = 140;
+      if (dist < repelRadius && dist > 0) {
+        const force = (1 - dist / repelRadius) * 3.5;
+        this.vx -= (mx / dist) * force;
+        this.vy -= (my / dist) * force;
       }
     }
 
-    // Advance time — gentle continuous drift
-    t += 0.08;
-  };
+    // Drag
+    this.vx *= 0.88;
+    this.vy *= 0.88;
 
-  // ── Resize ────────────────────────────────────────────────────────────────
+    this.x += this.vx;
+    this.y += this.vy;
+  }
 
-  p.windowResized = function() {
-    p.resizeCanvas(p.windowWidth, p.windowHeight);
-    p.background(38);
-    drawBacklight();
-  };
-
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// AUDIO
-// Starts automatically on load. Falls back silently if no files are configured.
-// Web Audio API requires a user gesture on some browsers before playing —
-// we attach a one-time click listener as a fallback.
-// ─────────────────────────────────────────────────────────────────────────────
-
-let audioCtx   = null;
-let gainNode   = null;
-let isMuted    = false;
-let hasPlayed  = false;
-
-async function startAudio() {
-  if (hasPlayed || SOUND_FILES.length === 0) return;
-  hasPlayed = true;
-
-  try {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    gainNode = audioCtx.createGain();
-    gainNode.connect(audioCtx.destination);
-    gainNode.gain.value = 1;
-
-    // Pick a random file from the pool
-    const url = SOUND_FILES[Math.floor(Math.random() * SOUND_FILES.length)];
-    const res = await fetch(url);
-    const buf = await res.arrayBuffer();
-    const decoded = await audioCtx.decodeAudioData(buf);
-
-    const source = audioCtx.createBufferSource();
-    source.buffer  = decoded;
-    source.loop    = true;
-    source.connect(gainNode);
-    source.start();
-
-    // When this sound ends, pick a new random one
-    source.onended = () => { hasPlayed = false; startAudio(); };
-
-  } catch(e) {
-    // No sound configured or blocked — fail silently
-    console.info('Audio not available:', e.message);
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(168, 168, 144, ${this.alpha})`;
+    ctx.fill();
   }
 }
 
-// Try autoplay immediately
-startAudio();
+// ── Central glow ────────────────────────────────────────────────────────────
+function drawCore() {
+  const pulse = Math.sin(time * 0.012) * 0.04 + 0.12;
+  const grad  = ctx.createRadialGradient(cx, cy, 0, cx, cy, 180);
+  grad.addColorStop(0,   `rgba(168, 168, 120, ${pulse})`);
+  grad.addColorStop(0.4, `rgba(100, 100, 80,  ${pulse * 0.4})`);
+  grad.addColorStop(1,   'rgba(0,0,0,0)');
+  ctx.beginPath();
+  ctx.arc(cx, cy, 180, 0, Math.PI * 2);
+  ctx.fillStyle = grad;
+  ctx.fill();
 
-// Fallback: first interaction triggers audio if autoplay was blocked
-document.addEventListener('click', () => startAudio(), { once: true });
-document.addEventListener('touchend', () => startAudio(), { once: true });
+  // tiny center dot
+  ctx.beginPath();
+  ctx.arc(cx, cy, 1.5, 0, Math.PI * 2);
+  ctx.fillStyle = `rgba(168, 168, 144, 0.4)`;
+  ctx.fill();
+}
 
-// ── Mute toggle ──────────────────────────────────────────────────────────────
+// ── Connection lines (very faint) ───────────────────────────────────────────
+function drawConnections() {
+  const threshold = 80;
+  for (let i = 0; i < bodies.length; i++) {
+    const a = bodies[i];
+    const da = Math.hypot(a.x - cx, a.y - cy);
+    if (da < threshold * 1.5) {
+      const alpha = (1 - da / (threshold * 2)) * 0.06;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(a.x, a.y);
+      ctx.strokeStyle = `rgba(168,168,144,${alpha})`;
+      ctx.lineWidth   = 0.4;
+      ctx.stroke();
+    }
+    for (let j = i + 1; j < bodies.length; j++) {
+      const b = bodies[j];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (d < threshold) {
+        const alpha = (1 - d / threshold) * 0.04;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.strokeStyle = `rgba(168,168,144,${alpha})`;
+        ctx.lineWidth   = 0.3;
+        ctx.stroke();
+      }
+    }
+  }
+}
 
-const muteBtn   = document.getElementById('mute-btn');
-const iconSound = document.getElementById('icon-sound');
-const iconMute  = document.getElementById('icon-mute');
+function loop() {
+  time++;
+  ctx.clearRect(0, 0, W, H);
+  drawCore();
+  drawConnections();
+  bodies.forEach(b => { b.update(); b.draw(); });
+  requestAnimationFrame(loop);
+}
 
-muteBtn.addEventListener('click', () => {
-  isMuted = !isMuted;
+function init() {
+  resize();
+  bodies = Array.from({ length: 90 }, () => new Body());
+  loop();
+  // hide loading
+  setTimeout(() => {
+    document.getElementById('loading').classList.add('hidden');
+  }, 600);
+}
 
-  if (gainNode) {
-    // Smooth fade rather than abrupt cut
-    gainNode.gain.cancelScheduledValues(audioCtx.currentTime);
-    gainNode.gain.linearRampToValueAtTime(
-      isMuted ? 0 : 1,
-      audioCtx.currentTime + 0.3
-    );
+window.addEventListener('resize', () => {
+  resize();
+  bodies.forEach(b => {
+    const angle = Math.random() * Math.PI * 2;
+    b.orbitAngle = angle;
+    b.ox = cx + Math.cos(angle) * b.orbitR;
+    b.oy = cy + Math.sin(angle) * b.orbitR;
+  });
+});
+
+// ── Input ────────────────────────────────────────────────────────────────────
+canvas.addEventListener('mousemove', e => {
+  mouse.x = e.clientX; mouse.y = e.clientY; mouse.active = true;
+});
+canvas.addEventListener('mouseleave', () => { mouse.active = false; });
+canvas.addEventListener('touchmove',  e => {
+  e.preventDefault();
+  mouse.x = e.touches[0].clientX;
+  mouse.y = e.touches[0].clientY;
+  mouse.active = true;
+}, { passive: false });
+canvas.addEventListener('touchend', () => { mouse.active = false; });
+
+// ─── Audio ────────────────────────────────────────────────────────────────────
+// Placeholder: swap these URLs for your actual hosted sound files
+// or replace the fetch with an API call to ElevenLabs / AudioGen
+const SOUNDS = [
+  'sounds/forest-1.mp3',
+  'sounds/forest-2.mp3',
+  'sounds/forest-3.mp3',
+];
+
+let audioCtx = null;
+let currentSource = null;
+let isPlaying = false;
+
+const btn   = document.getElementById('soundBtn');
+const ring  = document.getElementById('soundRing');
+const label = document.getElementById('soundLabel');
+
+async function playRandomSound() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  if (isPlaying && currentSource) {
+    currentSource.stop();
+    isPlaying = false;
+    ring.classList.remove('playing');
+    label.textContent = 'Touch to hear';
+    return;
   }
 
-  iconSound.style.display = isMuted ? 'none'  : 'block';
-  iconMute.style.display  = isMuted ? 'block' : 'none';
-});
-</script>
+  label.textContent = '…';
+  const url = SOUNDS[Math.floor(Math.random() * SOUNDS.length)];
 
+  try {
+    const res    = await fetch(url);
+    const buffer = await res.arrayBuffer();
+    const decoded = await audioCtx.decodeAudioData(buffer);
+
+    currentSource = audioCtx.createBufferSource();
+    currentSource.buffer = decoded;
+    currentSource.connect(audioCtx.destination);
+    currentSource.start();
+    isPlaying = true;
+    ring.classList.add('playing');
+    label.textContent = 'Playing';
+
+    currentSource.onended = () => {
+      isPlaying = false;
+      ring.classList.remove('playing');
+      label.textContent = 'Touch to hear';
+    };
+  } catch(e) {
+    // No sound files yet — still show the animation
+    console.warn('Sound not available:', e);
+    label.textContent = 'Touch to hear';
+    // Simulate playing state for demo purposes
+    ring.classList.add('playing');
+    label.textContent = 'Playing';
+    setTimeout(() => {
+      ring.classList.remove('playing');
+      label.textContent = 'Touch to hear';
+    }, 4000);
+  }
+}
+
+btn.addEventListener('click', playRandomSound);
+
+init();
+</script>
 </body>
 </html>

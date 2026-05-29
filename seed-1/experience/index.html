@@ -1,97 +1,410 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>seed-1</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spore I — For the Trees</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Inconsolata:wght@300;400&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --black: #080808;
+      --border: #1e1e1e;
+      --text-dim: #3a3a3a;
+      --text-mid: #777770;
+      --text: #c8c8c0;
+      --text-bright: #e8e8e0;
+      --accent: #a8a890;
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     html, body {
-      width: 100%;
+      background: var(--black);
+      color: var(--text);
+      font-family: 'Inconsolata', monospace;
+      font-weight: 300;
       height: 100%;
-      background: #080808;
       overflow: hidden;
+      user-select: none;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 100;
+      opacity: 0.5;
     }
 
     canvas {
+      position: fixed;
+      inset: 0;
       display: block;
-      position: fixed;
-      inset: 0;
     }
 
-    #ui {
+    .ui {
       position: fixed;
       inset: 0;
-      pointer-events: none;
       z-index: 10;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 40px 36px;
+      pointer-events: none;
     }
 
-    #mute-btn {
-      position: absolute;
-      bottom: 32px;
-      right: 32px;
-      pointer-events: all;
-      cursor: pointer;
-      background: none;
-      border: none;
-      padding: 8px;
-      opacity: 0.28;
-      transition: opacity 0.4s;
+    .ui-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
     }
 
-    #mute-btn:hover { opacity: 0.6; }
+    .ui-nav { pointer-events: all; }
 
-    #mute-btn svg {
-      width: 18px;
-      height: 18px;
-      fill: none;
-      stroke: #c8c8c0;
-      stroke-width: 1.5;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-
-    #seed-label {
-      position: absolute;
-      bottom: 36px;
-      left: 32px;
-      font-family: 'Courier New', monospace;
+    .ui-nav a {
       font-size: 10px;
       letter-spacing: 0.2em;
-      color: #242422;
-      text-transform: lowercase;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      text-decoration: none;
+      transition: color 0.3s;
+    }
+
+    .ui-nav a:hover { color: var(--text); }
+
+    .piece-id {
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .ui-bottom {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .sound-btn {
+      pointer-events: all;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      background: none;
+      border: none;
+      color: inherit;
+      font-family: inherit;
+      transition: opacity 0.3s;
+    }
+
+    .sound-btn:hover { opacity: 0.7; }
+
+    .sound-ring {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      transition: border-color 0.4s;
+    }
+
+    .sound-ring.playing { border-color: var(--accent); }
+
+    .sound-ring.playing .pulse { animation: pulse 2s ease-in-out infinite; }
+
+    .pulse {
+      position: absolute;
+      inset: -8px;
+      border-radius: 50%;
+      border: 1px solid var(--accent);
+      opacity: 0;
+    }
+
+    @keyframes pulse {
+      0%   { transform: scale(1);   opacity: 0.5; }
+      100% { transform: scale(1.5); opacity: 0; }
+    }
+
+    .sound-icon {
+      width: 16px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+    }
+
+    .sound-bar {
+      width: 2px;
+      background: var(--text-mid);
+      border-radius: 1px;
+    }
+
+    .b1 { height: 6px; }
+    .b2 { height: 12px; }
+    .b3 { height: 8px; }
+    .b4 { height: 10px; }
+    .b5 { height: 5px; }
+
+    .sound-ring.playing .b1 { animation: bar 0.8s ease-in-out infinite alternate; }
+    .sound-ring.playing .b2 { animation: bar 0.6s ease-in-out infinite alternate 0.1s; }
+    .sound-ring.playing .b3 { animation: bar 1s ease-in-out infinite alternate 0.2s; }
+    .sound-ring.playing .b4 { animation: bar 0.7s ease-in-out infinite alternate 0.05s; }
+    .sound-ring.playing .b5 { animation: bar 0.9s ease-in-out infinite alternate 0.15s; }
+
+    @keyframes bar {
+      from { transform: scaleY(0.3); }
+      to   { transform: scaleY(1.8); }
+    }
+
+    .sound-label {
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .piece-title {
+      font-family: 'IM Fell English', serif;
+      font-style: italic;
+      font-size: 1rem;
+      color: var(--text-dim);
+      letter-spacing: 0.05em;
+    }
+
+    #loading {
+      position: fixed;
+      inset: 0;
+      background: var(--black);
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.8s ease;
+    }
+
+    #loading.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .loading-text {
+      font-size: 10px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      animation: breathe 2s ease-in-out infinite;
+    }
+
+    @keyframes breathe {
+      0%, 100% { opacity: 0.3; }
+      50%       { opacity: 0.8; }
     }
   </style>
 </head>
 <body>
 
+<div id="loading"><p class="loading-text">…</p></div>
+
 <canvas id="c"></canvas>
 
-<div id="ui">
-  <button id="mute-btn" aria-label="Toggle sound">
-    <svg id="icon-sound" viewBox="0 0 24 24">
-      <path d="M11 5L6 9H2v6h4l5 4V5z"/>
-      <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
-      <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
-    </svg>
-    <svg id="icon-mute" viewBox="0 0 24 24" style="display:none">
-      <path d="M11 5L6 9H2v6h4l5 4V5z"/>
-      <line x1="23" y1="9" x2="17" y2="15"/>
-      <line x1="17" y1="9" x2="23" y2="15"/>
-    </svg>
-  </button>
-  <span id="seed-label">seed-1</span>
+<div class="ui">
+  <div class="ui-top">
+    <div class="ui-nav">
+      <a href="../index.html">← For the Trees</a>
+    </div>
+    <div class="piece-id">001 / Spore I</div>
+  </div>
+
+  <div class="ui-bottom">
+    <button class="sound-btn" id="soundBtn" aria-label="Play sound">
+      <div class="sound-ring" id="soundRing">
+        <div class="pulse"></div>
+        <div class="sound-icon">
+          <div class="sound-bar b1"></div>
+          <div class="sound-bar b2"></div>
+          <div class="sound-bar b3"></div>
+          <div class="sound-bar b4"></div>
+          <div class="sound-bar b5"></div>
+        </div>
+      </div>
+      <span class="sound-label" id="soundLabel">Touch to hear</span>
+    </button>
+    <p class="piece-title">Vor lauter Bäumen</p>
+  </div>
 </div>
 
 <script>
-// ─────────────────────────────────────────────────────────────────────────────
-// CONFIGURATION — change these per pendant
-// ─────────────────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
 
-const SEED_STRING = 'seed-1';
+let W, H, cx, cy, mouse = { x: -9999, y: -9999, active: false };
+let bodies = [];
+let time = 0;
 
-const SOUND_FILES = [
+function resize() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  cx = W / 2; cy = H / 2;
+}
+
+class Body {
+  constructor() {
+    const angle  = Math.random() * Math.PI * 2;
+    const radius = 60 + Math.random() * 120;
+    this.ox = cx + Math.cos(angle) * radius;
+    this.oy = cy + Math.sin(angle) * radius;
+    this.x  = this.ox;
+    this.y  = this.oy;
+    this.vx = 0;
+    this.vy = 0;
+    this.r  = Math.random() * 1.4 + 0.4;
+    this.alpha = Math.random() * 0.5 + 0.15;
+    this.orbitSpeed = (Math.random() - 0.5) * 0.0006;
+    this.orbitAngle = angle;
+    this.orbitR     = radius;
+    this.phase      = Math.random() * Math.PI * 2;
+    this.breatheAmp = Math.random() * 4 + 1;
+    this.breatheSpd = Math.random() * 0.008 + 0.004;
+  }
+
+  update() {
+    this.orbitAngle += this.orbitSpeed;
+    const breathe = Math.sin(time * this.breatheSpd + this.phase) * this.breatheAmp;
+    this.ox = cx + Math.cos(this.orbitAngle) * (this.orbitR + breathe);
+    this.oy = cy + Math.sin(this.orbitAngle) * (this.orbitR + breathe);
+
+    const kSpring = 0.018;
+    const dx = this.ox - this.x;
+    const dy = this.oy - this.y;
+    this.vx += dx * kSpring;
+    this.vy += dy * kSpring;
+
+    if (mouse.active) {
+      const mx = mouse.x - this.x;
+      const my = mouse.y - this.y;
+      const dist = Math.sqrt(mx * mx + my * my);
+      const repelRadius = 140;
+      if (dist < repelRadius && dist > 0) {
+        const force = (1 - dist / repelRadius) * 3.5;
+        this.vx -= (mx / dist) * force;
+        this.vy -= (my / dist) * force;
+      }
+    }
+
+    this.vx *= 0.88;
+    this.vy *= 0.88;
+    this.x += this.vx;
+    this.y += this.vy;
+  }
+
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(168, 168, 144, ${this.alpha})`;
+    ctx.fill();
+  }
+}
+
+function drawCore() {
+  const pulse = Math.sin(time * 0.012) * 0.04 + 0.12;
+  const grad  = ctx.createRadialGradient(cx, cy, 0, cx, cy, 180);
+  grad.addColorStop(0,   `rgba(168, 168, 120, ${pulse})`);
+  grad.addColorStop(0.4, `rgba(100, 100, 80,  ${pulse * 0.4})`);
+  grad.addColorStop(1,   'rgba(0,0,0,0)');
+  ctx.beginPath();
+  ctx.arc(cx, cy, 180, 0, Math.PI * 2);
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, 1.5, 0, Math.PI * 2);
+  ctx.fillStyle = `rgba(168, 168, 144, 0.4)`;
+  ctx.fill();
+}
+
+function drawConnections() {
+  const threshold = 80;
+  for (let i = 0; i < bodies.length; i++) {
+    const a = bodies[i];
+    const da = Math.hypot(a.x - cx, a.y - cy);
+    if (da < threshold * 1.5) {
+      const alpha = (1 - da / (threshold * 2)) * 0.06;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(a.x, a.y);
+      ctx.strokeStyle = `rgba(168,168,144,${alpha})`;
+      ctx.lineWidth   = 0.4;
+      ctx.stroke();
+    }
+    for (let j = i + 1; j < bodies.length; j++) {
+      const b = bodies[j];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (d < threshold) {
+        const alpha = (1 - d / threshold) * 0.04;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.strokeStyle = `rgba(168,168,144,${alpha})`;
+        ctx.lineWidth   = 0.3;
+        ctx.stroke();
+      }
+    }
+  }
+}
+
+function loop() {
+  time++;
+  ctx.clearRect(0, 0, W, H);
+  drawCore();
+  drawConnections();
+  bodies.forEach(b => { b.update(); b.draw(); });
+  requestAnimationFrame(loop);
+}
+
+function init() {
+  resize();
+  bodies = Array.from({ length: 90 }, () => new Body());
+  loop();
+  setTimeout(() => {
+    document.getElementById('loading').classList.add('hidden');
+  }, 600);
+}
+
+window.addEventListener('resize', () => {
+  resize();
+  bodies.forEach(b => {
+    const angle = Math.random() * Math.PI * 2;
+    b.orbitAngle = angle;
+    b.ox = cx + Math.cos(angle) * b.orbitR;
+    b.oy = cy + Math.sin(angle) * b.orbitR;
+  });
+});
+
+canvas.addEventListener('mousemove', e => {
+  mouse.x = e.clientX; mouse.y = e.clientY; mouse.active = true;
+});
+canvas.addEventListener('mouseleave', () => { mouse.active = false; });
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  mouse.x = e.touches[0].clientX;
+  mouse.y = e.touches[0].clientY;
+  mouse.active = true;
+}, { passive: false });
+canvas.addEventListener('touchend', () => { mouse.active = false; });
+
+// ─── Audio ────────────────────────────────────────────────────────────────────
+
+const SOUNDS = [
   '../../sounds/a_breathing_forest_1.mp3',
   '../../sounds/a_breathing_forest_2.mp3',
   '../../sounds/a_breathing_forest_3.mp3',
@@ -101,253 +414,56 @@ const SOUND_FILES = [
   '../../sounds/trees_communicating_1.mp3',
 ];
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SEED HASH
-// Converts the seed string into a stable integer.
-// Same string always produces the same visual character.
-// ─────────────────────────────────────────────────────────────────────────────
+let audioCtx = null;
+let currentSource = null;
+let isPlaying = false;
 
-function hashString(str) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) {
-    h = Math.imul(31, h) + str.charCodeAt(i) | 0;
-  }
-  return Math.abs(h);
-}
+const btn   = document.getElementById('soundBtn');
+const ring  = document.getElementById('soundRing');
+const label = document.getElementById('soundLabel');
 
-const SEED_INT = hashString(SEED_STRING);
+async function playRandomSound() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-// Seeded pseudo-random generator — gives stable values from the seed
-// without affecting Math.random() used elsewhere
-function seededRandom(seed) {
-  let s = seed;
-  return function() {
-    s = (s * 1664525 + 1013904223) & 0xffffffff;
-    return (s >>> 0) / 0xffffffff;
-  };
-}
-
-const rng = seededRandom(SEED_INT);
-function sr(min, max) { return min + rng() * (max - min); }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// TIME-BASED PHASE
-// Animation runs on a 20-minute cycle — each visit catches it mid-flow
-// ─────────────────────────────────────────────────────────────────────────────
-
-const CYCLE_MS   = 20 * 60 * 1000;
-const TIME_PHASE = (Date.now() % CYCLE_MS) / CYCLE_MS; // 0.0 → 1.0
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PARAMETERS — derived from seed, stable per pendant
-// ─────────────────────────────────────────────────────────────────────────────
-
-const PARAMS = {
-  particleCount:  Math.floor(sr(60, 140)),   // how many particles
-  orbitSpread:    sr(80, 200),               // how wide the cluster spreads
-  driftSpeed:     sr(0.00008, 0.00018),      // how fast particles drift (very slow)
-  breatheAmp:     sr(6, 18),                 // how much the cluster breathes in/out
-  breathePeriod:  sr(0.0004, 0.0009),        // speed of breathing
-  connectionDist: sr(55, 100),               // max distance for faint connection lines
-  glowRadius:     sr(0.55, 0.85),            // size of central backlight
-  glowBrightness: sr(22, 34),               // max brightness of central glow (0-255)
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// CANVAS SETUP
-// ─────────────────────────────────────────────────────────────────────────────
-
-const canvas = document.getElementById('c');
-const ctx    = canvas.getContext('2d');
-let W, H, cx, cy;
-
-function resize() {
-  W = canvas.width  = window.innerWidth;
-  H = canvas.height = window.innerHeight;
-  cx = W / 2;
-  cy = H / 2;
-}
-
-resize();
-window.addEventListener('resize', () => { resize(); drawBacklight(); });
-
-// ─────────────────────────────────────────────────────────────────────────────
-// BACKLIGHT
-// A very soft radial glow at the centre — the particles float against this.
-// Painted once onto the canvas at startup; particles layer on top.
-// ─────────────────────────────────────────────────────────────────────────────
-
-function drawBacklight() {
-  const r    = Math.max(W, H) * PARAMS.glowRadius;
-  const maxB = PARAMS.glowBrightness;
-  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-  grad.addColorStop(0,   `rgba(${maxB}, ${maxB}, ${maxB + 2}, 0.22)`);
-  grad.addColorStop(0.4, `rgba(${Math.floor(maxB * 0.5)}, ${Math.floor(maxB * 0.5)}, ${Math.floor(maxB * 0.5)}, 0.10)`);
-  grad.addColorStop(1,   'rgba(8, 8, 8, 0)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H);
-}
-
-// Fill background and paint backlight once at start
-ctx.fillStyle = '#080808';
-ctx.fillRect(0, 0, W, H);
-drawBacklight();
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PARTICLES
-// Each particle orbits a slowly drifting point near the centre.
-// No interaction — purely autonomous drift.
-// ─────────────────────────────────────────────────────────────────────────────
-
-class Particle {
-  constructor() {
-    // Stable starting angle and orbit radius — seeded so same per pendant
-    this.orbitAngle  = sr(0, Math.PI * 2);
-    this.orbitRadius = sr(10, PARAMS.orbitSpread);
-    this.orbitSpeed  = (sr(0, 1) < 0.5 ? 1 : -1) * sr(PARAMS.driftSpeed * 0.5, PARAMS.driftSpeed * 1.5);
-
-    // Breathing: each particle breathes at a slightly different phase
-    this.breathePhase = sr(0, Math.PI * 2);
-
-    // Visual properties
-    this.r     = sr(0.5, 1.8);
-    this.alpha = sr(0.08, 0.45);
-
-    // Current position (will be set each frame)
-    this.x = cx;
-    this.y = cy;
+  if (isPlaying && currentSource) {
+    currentSource.stop();
+    isPlaying = false;
+    ring.classList.remove('playing');
+    label.textContent = 'Touch to hear';
+    return;
   }
 
-  update(time) {
-    // Slowly advance orbit angle
-    this.orbitAngle += this.orbitSpeed;
+  label.textContent = '…';
+  const url = SOUNDS[Math.floor(Math.random() * SOUNDS.length)];
 
-    // Breathe: orbit radius pulses gently over time
-    const breathe = Math.sin(time * PARAMS.breathePeriod + this.breathePhase) * PARAMS.breatheAmp;
-    const r = this.orbitRadius + breathe;
-
-    this.x = cx + Math.cos(this.orbitAngle) * r;
-    this.y = cy + Math.sin(this.orbitAngle) * r;
-  }
-
-  draw() {
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(180, 180, 164, ${this.alpha})`;
-    ctx.fill();
-  }
-}
-
-// Initialise particles — orbit angles are offset by time phase
-// so each visit starts mid-cycle
-const particles = Array.from({ length: PARAMS.particleCount }, () => new Particle());
-
-// Pre-advance particles to the current time phase position
-const PHASE_FRAMES = TIME_PHASE * 200000;
-for (let i = 0; i < PHASE_FRAMES; i += 100) {
-  particles.forEach(p => p.update(i));
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// CONNECTION LINES
-// Very faint lines between nearby particles — appear and dissolve
-// as particles drift closer and further apart
-// ─────────────────────────────────────────────────────────────────────────────
-
-function drawConnections() {
-  const dist = PARAMS.connectionDist;
-  for (let i = 0; i < particles.length; i++) {
-    for (let j = i + 1; j < particles.length; j++) {
-      const a = particles[i];
-      const b = particles[j];
-      const d = Math.hypot(a.x - b.x, a.y - b.y);
-      if (d < dist) {
-        const alpha = (1 - d / dist) * 0.06;
-        ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
-        ctx.strokeStyle = `rgba(168, 168, 144, ${alpha})`;
-        ctx.lineWidth = 0.4;
-        ctx.stroke();
-      }
-    }
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ANIMATION LOOP
-// ─────────────────────────────────────────────────────────────────────────────
-
-let time = 0;
-
-function loop() {
-  // Very slow fade to background — creates long dissolving trails
-  ctx.fillStyle = 'rgba(8, 8, 8, 0.04)';
-  ctx.fillRect(0, 0, W, H);
-
-  // Occasionally repaint the backlight so it doesn't fade out completely
-  if (time % 180 === 0) drawBacklight();
-
-  drawConnections();
-  particles.forEach(p => { p.update(time); p.draw(); });
-
-  time++;
-  requestAnimationFrame(loop);
-}
-
-loop();
-
-// ─────────────────────────────────────────────────────────────────────────────
-// AUDIO
-// ─────────────────────────────────────────────────────────────────────────────
-
-let audioCtx  = null;
-let gainNode  = null;
-let isMuted   = false;
-let hasPlayed = false;
-
-async function startAudio() {
-  if (hasPlayed || SOUND_FILES.length === 0) return;
-  hasPlayed = true;
   try {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    gainNode = audioCtx.createGain();
-    gainNode.connect(audioCtx.destination);
-    gainNode.gain.value = 1;
-
-    const url     = SOUND_FILES[Math.floor(Math.random() * SOUND_FILES.length)];
     const res     = await fetch(url);
-    const buf     = await res.arrayBuffer();
-    const decoded = await audioCtx.decodeAudioData(buf);
-    const source  = audioCtx.createBufferSource();
-    source.buffer = decoded;
-    source.loop   = true;
-    source.connect(gainNode);
-    source.start();
+    const buffer  = await res.arrayBuffer();
+    const decoded = await audioCtx.decodeAudioData(buffer);
+
+    currentSource = audioCtx.createBufferSource();
+    currentSource.buffer = decoded;
+    currentSource.loop   = true;
+    currentSource.connect(audioCtx.destination);
+    currentSource.start();
+    isPlaying = true;
+    ring.classList.add('playing');
+    label.textContent = 'Playing';
+
+    currentSource.onended = () => {
+      isPlaying = false;
+      ring.classList.remove('playing');
+      label.textContent = 'Touch to hear';
+    };
   } catch(e) {
-    console.info('Audio not available:', e.message);
+    console.warn('Sound not available:', e);
+    label.textContent = 'Touch to hear';
   }
 }
 
-startAudio();
-document.addEventListener('click',    () => startAudio(), { once: true });
-document.addEventListener('touchend', () => startAudio(), { once: true });
+btn.addEventListener('click', playRandomSound);
 
-// Mute toggle
-const muteBtn   = document.getElementById('mute-btn');
-const iconSound = document.getElementById('icon-sound');
-const iconMute  = document.getElementById('icon-mute');
-
-muteBtn.addEventListener('click', () => {
-  isMuted = !isMuted;
-  if (gainNode) {
-    gainNode.gain.cancelScheduledValues(audioCtx.currentTime);
-    gainNode.gain.linearRampToValueAtTime(isMuted ? 0 : 1, audioCtx.currentTime + 0.3);
-  }
-  iconSound.style.display = isMuted ? 'none'  : 'block';
-  iconMute.style.display  = isMuted ? 'block' : 'none';
-});
+init();
 </script>
-
 </body>
 </html>

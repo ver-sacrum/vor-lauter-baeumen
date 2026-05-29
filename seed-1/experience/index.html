@@ -251,10 +251,14 @@ let W, H, cx, cy, mouse = { x: -9999, y: -9999, active: false };
 let bodies = [];
 let time = 0;
 
+// Glow origin — starts at centre, drifts lazily toward mouse/touch
+let glowX, glowY;
+
 function resize() {
   W = canvas.width  = window.innerWidth;
   H = canvas.height = window.innerHeight;
   cx = W / 2; cy = H / 2;
+  if (!glowX) { glowX = cx; glowY = cy; }
 }
 
 class Body {
@@ -317,18 +321,13 @@ class Body {
 
 function drawCore() {
   const pulse = Math.sin(time * 0.012) * 0.04 + 0.12;
-  const grad  = ctx.createRadialGradient(cx, cy, 0, cx, cy, 180);
+  const grad  = ctx.createRadialGradient(glowX, glowY, 0, glowX, glowY, 180);
   grad.addColorStop(0,   `rgba(168, 168, 120, ${pulse})`);
   grad.addColorStop(0.4, `rgba(100, 100, 80,  ${pulse * 0.4})`);
   grad.addColorStop(1,   'rgba(0,0,0,0)');
   ctx.beginPath();
-  ctx.arc(cx, cy, 180, 0, Math.PI * 2);
+  ctx.arc(glowX, glowY, 180, 0, Math.PI * 2);
   ctx.fillStyle = grad;
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.arc(cx, cy, 1.5, 0, Math.PI * 2);
-  ctx.fillStyle = `rgba(168, 168, 144, 0.4)`;
   ctx.fill();
 }
 
@@ -364,6 +363,13 @@ function drawConnections() {
 
 function loop() {
   time++;
+
+  // Glow drifts lazily toward mouse when active, back to centre when not
+  const targetX = mouse.active ? mouse.x : cx;
+  const targetY = mouse.active ? mouse.y : cy;
+  glowX += (targetX - glowX) * 0.03;
+  glowY += (targetY - glowY) * 0.03;
+
   ctx.clearRect(0, 0, W, H);
   drawCore();
   drawConnections();
@@ -404,15 +410,12 @@ canvas.addEventListener('touchend', () => { mouse.active = false; });
 
 // ─── Audio ────────────────────────────────────────────────────────────────────
 
-const SOUNDS = [
-  '../../sounds/a_breathing_forest_1.mp3',
-  '../../sounds/a_breathing_forest_2.mp3',
-  '../../sounds/a_breathing_forest_3.mp3',
-  '../../sounds/Caterpillars_dreaming_of_butterflies_during_the_winter_2.mp3',
-  '../../sounds/leaves_falling_quietly_1.mp3',
-  '../../sounds/rocks_crumbling_and_freezing_1.mp3',
-  '../../sounds/trees_communicating_1.mp3',
-];
+// Sound list is loaded from sounds.json — add new files there, no need to edit this page
+let SOUNDS = [];
+fetch('../../sounds/sounds.json')
+  .then(r => r.json())
+  .then(list => { SOUNDS = list; })
+  .catch(() => { console.warn('Could not load sounds.json'); });
 
 let audioCtx = null;
 let currentSource = null;
@@ -433,8 +436,11 @@ async function playRandomSound() {
     return;
   }
 
+  if (SOUNDS.length === 0) { label.textContent = 'Touch to hear'; return; }
+
   label.textContent = '…';
-  const url = SOUNDS[Math.floor(Math.random() * SOUNDS.length)];
+  const file = SOUNDS[Math.floor(Math.random() * SOUNDS.length)];
+  const url  = `../../sounds/${file}`;
 
   try {
     const res     = await fetch(url);

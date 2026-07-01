@@ -1,0 +1,201 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Vor lauter Bäumen — shared experience styles
+   Edit this file to change appearance across all pendant pages.
+───────────────────────────────────────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Inconsolata:wght@300;400&display=swap');
+
+:root {
+  --black: #080808;
+  --border: #3a3a3a;
+  --text-dim: #888880;
+  --text-mid: #a8a8a0;
+  --text: #c8c8c0;
+  --text-bright: #e8e8e0;
+  --accent: #a8a890;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  background: var(--black);
+  color: var(--text);
+  font-family: 'Inconsolata', monospace;
+  font-weight: 300;
+  height: 100%;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Grain overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 100;
+  opacity: 0.5;
+}
+
+canvas {
+  position: fixed;
+  inset: 0;
+  display: block;
+}
+
+/* ── UI layout ── */
+.ui {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 40px 36px;
+  pointer-events: none;
+}
+
+.ui-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.ui-nav { pointer-events: all; }
+
+.ui-nav a {
+  font-size: 13px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text);
+  text-decoration: none;
+  transition: color 0.3s;
+}
+
+.ui-nav a::before { content: '← '; }
+.ui-nav a:hover { color: var(--text-bright); }
+
+.ui-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+/* ── Sound button ── */
+.sound-btn {
+  pointer-events: all;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  background: none;
+  border: none;
+  color: inherit;
+  font-family: inherit;
+  transition: opacity 0.3s;
+}
+
+.sound-btn:hover { opacity: 0.7; }
+
+.sound-ring {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: border-color 0.4s;
+  animation: ring-breathe 4.5s ease-in-out infinite;
+}
+
+@keyframes ring-breathe {
+  0%, 100% { transform: scale(0.86); }
+  50%       { transform: scale(1.04); }
+}
+
+.sound-ring.playing {
+  animation: none;
+  transform: scale(1);
+  border-color: var(--accent);
+}
+
+/* ── Sound bars — static at rest, animated when playing ── */
+.sound-bars {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 24px;
+}
+
+.sound-bar {
+  width: 2px;
+  background: var(--text-mid);
+  border-radius: 1px;
+  transition: background 0.3s;
+}
+
+.sound-ring.playing .sound-bar { background: var(--accent); }
+
+.b1 { height: 6px; }
+.b2 { height: 12px; }
+.b3 { height: 8px; }
+.b4 { height: 10px; }
+.b5 { height: 5px; }
+
+.sound-ring.playing .b1 { animation: bar 0.8s ease-in-out infinite alternate; }
+.sound-ring.playing .b2 { animation: bar 0.6s ease-in-out infinite alternate 0.1s; }
+.sound-ring.playing .b3 { animation: bar 1.0s ease-in-out infinite alternate 0.2s; }
+.sound-ring.playing .b4 { animation: bar 0.7s ease-in-out infinite alternate 0.05s; }
+.sound-ring.playing .b5 { animation: bar 0.9s ease-in-out infinite alternate 0.15s; }
+
+@keyframes bar {
+  from { transform: scaleY(0.3); }
+  to   { transform: scaleY(1.8); }
+}
+
+.sound-label {
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.seed-id {
+  font-family: 'Inconsolata', monospace;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--text-dim);
+}
+
+/* ── Loading screen ── */
+#loading {
+  position: fixed;
+  inset: 0;
+  background: var(--black);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.8s ease;
+}
+
+#loading.hidden { opacity: 0; pointer-events: none; }
+
+.loading-text {
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  animation: breathe 2s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.3; }
+  50%       { opacity: 0.8; }
+}

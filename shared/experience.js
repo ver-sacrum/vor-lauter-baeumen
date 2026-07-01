@@ -5,19 +5,8 @@
 ───────────────────────────────────────────────────────────────────────────── */
 
 // ── Colour palette ────────────────────────────────────────────────────────────
-// 48 colours across wide hue range — some muted, some vivid.
-// Each seed deterministically picks one via hash modulo.
-
-const PALETTE = [
-  [187,74,74],  [190,163,119],[187,228,51], [124,173,116],[127,179,151],[97,193,202],
-  [92,134,232], [100,60,188], [205,22,218], [189,111,146],[244,81,49],  [236,198,58],
-  [181,244,87], [48,187,50],  [87,152,128], [102,146,161],[74,91,198],  [169,147,193],
-  [196,53,182], [229,45,97],  [242,116,53], [219,213,102],[130,161,106],[148,192,156],
-  [70,236,203], [70,154,213], [121,119,176],[176,139,196],[214,133,192],[173,62,75],
-  [192,161,130],[179,192,83], [138,243,100],[83,231,135], [61,200,195], [86,131,194],
-  [132,109,223],[150,86,164], [246,19,147], [194,60,53],  [242,187,79], [157,188,79],
-  [139,201,132],[22,214,121], [7,202,232],  [115,137,204],[119,55,230], [209,121,211],
-];
+// Loaded from palette.json — edit that file to change colours across all pendants.
+// Each seed deterministically picks one colour via hash modulo.
 
 function hashString(str) {
   let h = 0;
@@ -27,9 +16,18 @@ function hashString(str) {
   return Math.abs(h);
 }
 
-const SEED_HASH  = hashString(SEED_STRING);
-const SEED_COLOR = PALETTE[SEED_HASH % PALETTE.length];
-const [SC_R, SC_G, SC_B] = SEED_COLOR;
+let PALETTE = [];
+let SC_R = 200, SC_G = 200, SC_B = 180; // fallback neutral while loading
+
+fetch('../../shared/palette.json')
+  .then(r => r.json())
+  .then(list => {
+    PALETTE = list;
+    const SEED_HASH  = hashString(SEED_STRING);
+    const SEED_COLOR = PALETTE[SEED_HASH % PALETTE.length];
+    [SC_R, SC_G, SC_B] = SEED_COLOR;
+  })
+  .catch(() => { console.warn('Could not load palette.json'); });
 
 // ── Canvas ────────────────────────────────────────────────────────────────────
 
@@ -54,10 +52,12 @@ class Body {
   constructor() {
     const angle  = Math.random() * Math.PI * 2;
     const radius = 30 + Math.random() * 150;
+    // Start particles further from their orbit origin so settling is visible on load
+    const scatterFactor = 2.5;
     this.ox = cx + Math.cos(angle) * radius;
     this.oy = cy + Math.sin(angle) * radius;
-    this.x  = this.ox;
-    this.y  = this.oy;
+    this.x  = cx + Math.cos(angle) * radius * scatterFactor;
+    this.y  = cy + Math.sin(angle) * radius * scatterFactor;
     this.vx = 0;
     this.vy = 0;
     this.r  = Math.random() * 1.4 + 0.4;
@@ -168,9 +168,10 @@ function init() {
   resize();
   bodies = Array.from({ length: 90 }, () => new Body());
   loop();
+  // Wait for palette to load, then reveal — visitor sees particles still settling
   setTimeout(() => {
     document.getElementById('loading').classList.add('hidden');
-  }, 600);
+  }, 2200);
   // Set seed ID label
   document.getElementById('seedId').textContent = SEED_STRING;
   document.title = SEED_STRING;

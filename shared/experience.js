@@ -202,65 +202,238 @@ canvas.addEventListener('touchmove', e => {
 canvas.addEventListener('touchend', () => { mouse.active = false; });
 
 // ── Audio ─────────────────────────────────────────────────────────────────────
-// sounds.json lives two levels up in /sounds/
-// Add new sound files there without touching this script.
+//
+// How this works:
+//   · sounds.json lists every file. Families are derived from the filenames:
+//     "owlets_calling_loop_3.mp3" -> family "owlets_calling", loops = true.
+//   · Each pendant draws a fixed subset of families (see config.json).
+//     Families beginning with "rec_" are real field recordings; each pendant is
+//     guaranteed at least one.
+//   · The opening clip is the same for everyone tapping the same pendant in the
+//     same time window. After that each visit follows its own path.
+//   · Clips play for at least minPlaySeconds (looping if they are loops), then
+//     crossfade into the next one.
+//
+// To change any of this, edit shared/config.json — not this file.
 
-let SOUNDS = [];
-fetch('../../sounds/sounds.json')
-  .then(r => r.json())
-  .then(list => { SOUNDS = list; })
-  .catch(() => { console.warn('Could not load sounds.json'); });
+const CFG = {
+  rotationMinutes:      20,
+  familiesPerPendant:    7,
+  recFamiliesPerPendant: 1,
+  subsetRotationDays:    0,
+  minPlaySeconds:       90,
+  crossfadeSeconds:      3,
+};
 
-let audioCtx = null;
-let currentSource = null;
-let isPlaying = false;
+let SOUNDS   = [];   // every filename
+let FAMILIES = [];   // { stem, loops, files[] }
+let SUBSET   = [];   // this pendant's families
+let JOURNEY  = [];   // order of families for this visit
+let journeyPos = 0;
+let audioReady = false;
+
+// ── Seeded random, so subsets are stable per pendant ──────────────────────────
+
+// Scatters a seed hash against a counter. Needed because the plain string hash
+// is too linear — without it, some pendants would stay locked together.
+function mixHash(seedHash, counter) {
+  let h = (seedHash ^ Math.imul(counter, 2654435761)) >>> 0;
+  h = Math.imul(h ^ (h >>> 15), 2246822519) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 3266489917) >>> 0;
+  return (h ^ (h >>> 16)) >>> 0;
+}
+
+function mulberry32(a) {
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+function shuffled(arr, rand) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// ── Build families from filenames ─────────────────────────────────────────────
+
+function buildFamilies(names) {
+  const map = new Map();
+  for (const name of names) {
+    let stem = name.replace(/\.mp3$/i, '');
+    stem = stem.replace(/_(\d+)$/, '');          // strip variant number
+    const loops = /_loop$/.test(stem);
+    stem = stem.replace(/_loop$/, '');
+    const key = stem + (loops ? '|loop' : '');
+    if (!map.has(key)) map.set(key, { stem, loops, files: [] });
+    map.get(key).files.push(name);
+  }
+  return [...map.values()].sort((a, b) => a.stem.localeCompare(b.stem));
+}
+
+// ── Choose this pendant's subset ──────────────────────────────────────────────
+
+function chooseSubset() {
+  const seedHash = hashString(SEED_STRING);
+  const epoch = CFG.subsetRotationDays > 0
+    ? Math.floor(Date.now() / (CFG.subsetRotationDays * 86400000))
+    : 0;
+  const rand = mulberry32(mixHash(seedHash, epoch));
+
+  const recs  = FAMILIES.filter(f => /^rec_/.test(f.stem));
+  const rest  = FAMILIES.filter(f => !/^rec_/.test(f.stem));
+
+  const wantRec = Math.min(CFG.recFamiliesPerPendant, recs.length);
+  const picked  = shuffled(recs, rand).slice(0, wantRec);
+  const wantRest = Math.max(0, CFG.familiesPerPendant - picked.length);
+  picked.push(...shuffled(rest, rand).slice(0, wantRest));
+
+  return picked;
+}
+
+// ── Opening clip: shared by everyone in the same time window ──────────────────
+
+function openingFamily() {
+  const windowMs = CFG.rotationMinutes * 60 * 1000;
+  const windowIx = Math.floor(Date.now() / windowMs);
+  const h = mixHash(hashString(SEED_STRING + '#open'), windowIx);
+  return SUBSET[h % SUBSET.length];
+}
+
+function fileFrom(family) {
+  return family.files[Math.floor(Math.random() * family.files.length)];
+}
+
+// ── Load config and sounds, then prepare ──────────────────────────────────────
+
+Promise.all([
+  fetch('../../shared/config.json').then(r => r.json()).catch(() => ({})),
+  fetch('../../sounds/sounds.json').then(r => r.json()).catch(() => []),
+]).then(([cfg, list]) => {
+  for (const k of Object.keys(CFG)) {
+    if (typeof cfg[k] === 'number' && cfg[k] >= 0) CFG[k] = cfg[k];
+  }
+  SOUNDS   = Array.isArray(list) ? list : [];
+  if (!SOUNDS.length) return;
+
+  FAMILIES = buildFamilies(SOUNDS);
+  SUBSET   = chooseSubset();
+
+  // This visit's path: the shared opening first, then the rest in a random
+  // order that differs for every visitor.
+  const opening = openingFamily();
+  const others  = SUBSET.filter(f => f !== opening);
+  JOURNEY = [opening, ...shuffled(others, Math.random)];
+  journeyPos = 0;
+  audioReady = true;
+});
+
+// ── Playback ──────────────────────────────────────────────────────────────────
+
+let audioCtx   = null;
+let activeNode = null;   // { source, gain }
+let isPlaying  = false;
+let nextTimer  = null;
 
 const btn   = document.getElementById('soundBtn');
 const ring  = document.getElementById('soundRing');
 const label = document.getElementById('soundLabel');
 
-async function playRandomSound() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+const bufferCache = new Map();
 
-  if (isPlaying && currentSource) {
-    currentSource.stop();
-    isPlaying = false;
-    ring.classList.remove('playing');
-    label.textContent = 'Touch to hear';
-    return;
-  }
-
-  if (SOUNDS.length === 0) { label.textContent = 'Touch to hear'; return; }
-
-  label.textContent = '…';
-  const file = SOUNDS[Math.floor(Math.random() * SOUNDS.length)];
-  const url  = `../../sounds/${file}`;
-
-  try {
-    const res     = await fetch(url);
-    const buffer  = await res.arrayBuffer();
-    const decoded = await audioCtx.decodeAudioData(buffer);
-
-    currentSource        = audioCtx.createBufferSource();
-    currentSource.buffer = decoded;
-    currentSource.loop   = true;
-    currentSource.connect(audioCtx.destination);
-    currentSource.start();
-    isPlaying = true;
-    ring.classList.add('playing');
-    label.textContent = 'Playing';
-
-    currentSource.onended = () => {
-      isPlaying = false;
-      ring.classList.remove('playing');
-      label.textContent = 'Touch to hear';
-    };
-  } catch(e) {
-    console.warn('Sound not available:', e);
-    label.textContent = 'Touch to hear';
-  }
+async function loadBuffer(file) {
+  if (bufferCache.has(file)) return bufferCache.get(file);
+  const res = await fetch(`../../sounds/${file}`);
+  const arr = await res.arrayBuffer();
+  const buf = await audioCtx.decodeAudioData(arr);
+  bufferCache.set(file, buf);
+  return buf;
 }
 
-btn.addEventListener('click', playRandomSound);
+function nextFamily() {
+  const f = JOURNEY[journeyPos % JOURNEY.length];
+  journeyPos++;
+  return f;
+}
+
+// Play one clip, then schedule the next with a crossfade.
+async function playNext(isFirst) {
+  const family = nextFamily();
+  const file   = fileFrom(family);
+
+  let buf;
+  try { buf = await loadBuffer(file); }
+  catch (e) { console.warn('Could not load', file, e); return stopAll(); }
+
+  const fade = Math.min(CFG.crossfadeSeconds, buf.duration / 2);
+  // Loops repeat until minPlaySeconds; one-shots play once.
+  const passes = family.loops
+    ? Math.max(1, Math.ceil(CFG.minPlaySeconds / buf.duration))
+    : 1;
+  const playFor = passes * buf.duration;
+
+  const now  = audioCtx.currentTime;
+  const gain = audioCtx.createGain();
+  gain.connect(audioCtx.destination);
+  gain.gain.setValueAtTime(isFirst ? 1 : 0, now);
+  if (!isFirst) gain.gain.linearRampToValueAtTime(1, now + fade);
+
+  const source = audioCtx.createBufferSource();
+  source.buffer = buf;
+  source.loop   = family.loops;
+  source.connect(gain);
+  source.start(now);
+  source.stop(now + playFor + fade);
+
+  // Fade the outgoing clip down as this one comes up.
+  if (activeNode) {
+    const g = activeNode.gain.gain;
+    g.cancelScheduledValues(now);
+    g.setValueAtTime(g.value, now);
+    g.linearRampToValueAtTime(0, now + fade);
+  }
+
+  activeNode = { source, gain };
+
+  // Schedule the handover slightly before this clip ends.
+  clearTimeout(nextTimer);
+  nextTimer = setTimeout(() => {
+    if (isPlaying) playNext(false);
+  }, Math.max(500, (playFor - fade) * 1000));
+}
+
+function stopAll() {
+  clearTimeout(nextTimer);
+  if (activeNode) {
+    try { activeNode.source.stop(); } catch (e) {}
+    activeNode = null;
+  }
+  isPlaying = false;
+  ring.classList.remove('playing');
+  label.textContent = 'Touch to hear';
+}
+
+async function toggleSound() {
+  if (isPlaying) return stopAll();
+  if (!audioReady) return;
+
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+  isPlaying = true;
+  ring.classList.add('playing');
+  label.textContent = '…';
+  journeyPos = 0;
+  await playNext(true);
+  if (isPlaying) label.textContent = 'Playing';
+}
+
+btn.addEventListener('click', toggleSound);
 
 init();

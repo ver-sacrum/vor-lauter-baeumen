@@ -1,0 +1,21 @@
+{
+  "_comment": "Sound behaviour. Edit these numbers only — no code changes needed.",
+
+  "_rotationMinutes": "How often the opening sound of each pendant changes. Low for openings, high for general use.",
+  "rotationMinutes": 20,
+
+  "_familiesPerPendant": "How many sound families each pendant draws from.",
+  "familiesPerPendant": 7,
+
+  "_recFamiliesPerPendant": "How many of those must be real field recordings (rec_ prefix).",
+  "recFamiliesPerPendant": 1,
+
+  "_subsetRotationDays": "Recalculate each pendant's families every N days. 0 = never change.",
+  "subsetRotationDays": 0,
+
+  "_minPlaySeconds": "Keep a clip playing at least this long before moving to the next.",
+  "minPlaySeconds": 90,
+
+  "_crossfadeSeconds": "Length of the fade between clips.",
+  "crossfadeSeconds": 3
+}
